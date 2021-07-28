@@ -1,1 +1,49 @@
-// TODO
+.postList {
+    list-style: none;
+
+    li {
+        margin-bottom: 3rem;
+        cursor: pointer;
+
+        h1 {
+            font-size: 1.75rem;
+            line-height: 2rem;
+            color: var(--heading);
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        h2 {
+            font-size: 1.1rem;
+            line-height: 1.3rem;
+            color: var(--body);
+            font-weight: 400;
+        }
+
+        .postInfo { 
+            display: flex;
+            flex-direction: row;
+            gap: 27px;
+            margin: 1.5rem 0;
+
+            div {
+                display: flex;
+                align-items: center; 
+
+                svg {
+                    margin-right: 0.6rem;
+                }
+
+                p {display: inline-block;}
+            }
+        }
+    }
+}
+
+.button {  
+    color: var(--highlight);
+    font-weight: 600;
+    background: transparent;
+    border: none;
+}
+    
