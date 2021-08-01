@@ -3,3 +3,24 @@
     margin: 0 auto;
     padding: 4rem 0 0 0;
 }
+
+.preview {
+    display: block;
+    width: 100%;
+    max-width: 1120px;
+    margin: 5rem auto;
+    background: var(--heading);
+    color: var(--background);
+    text-align: center;
+    border-radius: 2px;
+    padding: 1rem;
+    font-weight: 600;
+    font-size: 1rem;
+
+}
+
+.comments {
+   div {
+        max-width: 1120px;
+   }
+}

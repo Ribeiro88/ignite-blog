@@ -1,13 +1,18 @@
 import React, { Fragment } from 'react';
-import { FiCalendar, FiClock, FiUser } from 'react-icons/fi';
-import Head from 'next/head';
-import { useRouter } from 'next/router';
 import { GetStaticPaths, GetStaticProps } from 'next';
+import { RichText } from 'prismic-dom';
+import { FiCalendar, FiClock, FiUser, FiEdit } from 'react-icons/fi';
+import Prismic from '@prismicio/client';
+import { useRouter } from 'next/router';
 import { format } from 'date-fns';
 import ptBR from 'date-fns/locale/pt-BR';
-import Prismic from '@prismicio/client';
-import { RichText } from 'prismic-dom';
+import Link from 'next/link';
+import Head from 'next/head';
+
+
 import Header from '../../components/Header';
+import Comments from '../../components/Comments';
+
 
 import { getPrismicClient } from '../../services/prismic';
 
@@ -15,8 +20,11 @@ import commonStyles from '../../styles/common.module.scss';
 import styles from './post.module.scss';
 
 
+
+
 interface Post {
   first_publication_date: string | null;
+  last_publication_date: string | null;
   data: {
     title: string;
     banner: {
@@ -34,10 +42,34 @@ interface Post {
 
 interface PostProps {
   post: Post;
+  preview: boolean;
+  navigation: {
+    prevPost: {
+      uid: string;
+      data: {
+        title: string;
+      };
+    }[];
+    nextPost: {
+      uid: string;
+      data: {
+        title: string;
+      };
+    }[];
+  }
 }
 
-export default function Post({ post }: PostProps) {
+export default function Post({ post, navigation, preview }: PostProps) {
   const { isFallback } = useRouter();
+
+  const totalWords = post.data.content.reduce((total, contentItem) => {
+    total += contentItem.heading.split(' ').length;
+
+    const words = contentItem.body.map(item => item.text.split(' ').length);
+    words.map(word => (total += word));
+    return total;
+  }, 0);
+  const readTime = Math.ceil(totalWords / 200);
 
   const formatedDate = format(
     new Date(post.first_publication_date),
@@ -46,6 +78,20 @@ export default function Post({ post }: PostProps) {
       locale: ptBR,
     }
   );
+
+  const isPostEdited =
+    post.first_publication_date !== post.last_publication_date;
+
+  let editionDate;
+  if (isPostEdited) {
+    editionDate = format(
+      new Date(post.last_publication_date),
+      "'editado em' dd MMM yyyy', às' H':'m",
+      {
+        locale: ptBR,
+      }
+    );
+  }
 
   return (
     <>
@@ -77,7 +123,11 @@ export default function Post({ post }: PostProps) {
                 </div>
                 <div>
                   <FiClock />
-                  <time>4 min</time>
+                  <time>{`${readTime} min`}</time>
+                </div>
+                <div>
+                  <FiEdit />
+                  {isPostEdited && editionDate}
                 </div>
               </div>
               <div className={styles.postContentBody}>
@@ -89,6 +139,39 @@ export default function Post({ post }: PostProps) {
                 ))}
               </div>
             </section>
+
+            <section className={`${styles.navigation} ${commonStyles.container}`}>
+              {navigation?.prevPost.length > 0 && (
+                <div>
+                  <h3>{navigation.prevPost[0].data.title}</h3>
+                  <Link href={`/post/${navigation.prevPost[0].uid}`}>
+                    <a>Post anterior</a>
+                  </Link>
+                </div>
+              )}
+
+              {navigation?.nextPost.length > 0 && (
+                <div>
+                  <h3>{navigation.nextPost[0].data.title}</h3>
+                  <Link href={`/post/${navigation.nextPost[0].uid}`}>
+                    <a>Próximo post</a>
+                  </Link>
+                </div>
+              )}
+            </section>
+
+            <Comments />
+
+            {preview && (
+              <footer>
+                <Link href="/api/exit-preview">
+                  <a className={commonStyles.preview}>
+                    Sair do modo preview
+                  </a>
+                </Link>
+              </footer>
+            )}
+
           </main>
         </>
       )}
@@ -113,15 +196,34 @@ export const getStaticPaths: GetStaticPaths = async () => {
   };
 };
 
-export const getStaticProps: GetStaticProps = async context => {
+export const getStaticProps: GetStaticProps = async ({ params, preview = false, previewData }) => {
   const prismic = getPrismicClient();
-  const { slug } = context.params;
+  const { slug } = params;
 
-  const response = await prismic.getByUID('posts', String(slug), {});
+  const response = await prismic.getByUID('posts', String(slug), {
+    ref: previewData?.ref || null,
+  });
+
+  const prevPost = await prismic.query(
+    [Prismic.Predicates.at('document.type', 'posts')], {
+      pageSize: 1,
+      after: response.id,
+      orderings: '[document.first_publication_date]',
+    }
+  );
+
+  const nextPost = await prismic.query(
+    [Prismic.Predicates.at('document.type', 'posts')], {
+      pageSize: 1,
+      after: response.id,
+      orderings: '[document.first_publication_date desc]',
+    }
+  );
 
   const post = {
     uid: response.uid,
     first_publication_date: response.first_publication_date,
+    last_publication_date: response.last_publication_date,
     data: {
       title: response.data.title,
       author: response.data.author,
@@ -141,6 +243,11 @@ export const getStaticProps: GetStaticProps = async context => {
   return {
     props: {
       post,
+      preview,
+      navigation: {
+        prevPost: prevPost?.results,
+        nextPost: nextPost?.results
+      }
     },
   };
 }
